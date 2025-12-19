@@ -5,6 +5,11 @@ IMG = pong.img
 ISO = pong_os.iso
 ISO_DIR = iso_root
 
+# --- Penambahan Variabel Baru ---
+# Nilai dalam satuan 1/10 detik. 
+# Contoh: 50 berarti 5 detik. 0 berarti langsung boot.
+BOOT_TIMEOUT ?= 5000
+
 all: $(IMG) $(ISO)
 
 $(IMG): boot.asm game.asm
@@ -18,15 +23,18 @@ $(IMG): boot.asm game.asm
 $(ISO): $(IMG) isolinux.cfg
 	@mkdir -p $(ISO_DIR)
 	@cp $(IMG) $(ISO_DIR)/
-	@cp isolinux.cfg $(ISO_DIR)/
+	
+	# Mengubah timeout di isolinux.cfg secara dinamis sebelum disalin
+	@sed "s/^timeout.*/timeout $(BOOT_TIMEOUT)/" isolinux.cfg > $(ISO_DIR)/isolinux.cfg
+	
 	@cp /usr/lib/ISOLINUX/isolinux.bin $(ISO_DIR)/ 2>/dev/null || true
 	@cp /usr/lib/syslinux/modules/bios/*.c32 $(ISO_DIR)/ 2>/dev/null || true
 	@cp /usr/lib/syslinux/memdisk $(ISO_DIR)/ 2>/dev/null || true
-	# Memastikan poweroff.c32 tersalin dari berbagai kemungkinan path sistem
 	@cp /usr/lib/syslinux/modules/bios/poweroff.c32 $(ISO_DIR)/ 2>/dev/null || true
+	
 	genisoimage -o $(ISO) -b isolinux.bin -c boot.cat -no-emul-boot \
 		-boot-load-size 4 -boot-info-table $(ISO_DIR)
-	@echo "[+] Success build $(ISO)"
+	@echo "[+] Success build $(ISO) with timeout $(BOOT_TIMEOUT)"
 
 run-iso: $(ISO)
 	qemu-system-i386 -cdrom $(ISO)
