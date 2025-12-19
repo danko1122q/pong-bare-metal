@@ -5,11 +5,6 @@ IMG = pong.img
 ISO = pong_os.iso
 ISO_DIR = iso_root
 
-# --- Penambahan Variabel Baru ---
-# Nilai dalam satuan 1/10 detik. 
-# Contoh: 50 berarti 5 detik. 0 berarti langsung boot.
-BOOT_TIMEOUT ?= 5000
-
 all: $(IMG) $(ISO)
 
 $(IMG): boot.asm game.asm
