@@ -2,6 +2,12 @@
 
 Pong OS is a standalone 16-bit real-mode game that runs directly on x86 hardware without relying on any operating system. This project showcases low-level systems programming concepts, including custom bootloaders, BIOS interrupt usage, and direct VGA text-mode rendering.
 
+
+![Demo1](docs/demo1.png)
+![Demo2](docs/demo2.png)
+
+
+
 ## Technical Architecture
 
 * **Bootloader**: A custom 512-byte MBR bootloader responsible for basic hardware setup, stack initialization, and loading the game kernel from disk.
