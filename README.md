@@ -1,4 +1,4 @@
-# Pong OS: A Bare-Metal x86 Project
+# Pong OS: A Bare-Metal x86 Project v1.1.0
 
 Pong OS is a standalone 16-bit real-mode game that runs directly on x86 hardware without relying on any operating system. This project showcases low-level systems programming concepts, including custom bootloaders, BIOS interrupt usage, and direct VGA text-mode rendering.
 

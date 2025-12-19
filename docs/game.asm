@@ -104,7 +104,7 @@ main_loop:
 ; --- Game Engine ---
 .move_ball_logic:
     inc byte [frame_count]
-    cmp byte [frame_count], 2
+    cmp byte [frame_count], 1
     jb .draw_everything
     mov byte [frame_count], 0
     call erase_ball
@@ -114,8 +114,8 @@ main_loop:
 
 .draw_everything:
     call draw_paddles
-    call draw_center_line
     call draw_scores
+    call draw_center_line
     jmp main_loop
 
 exit_to_menu:
@@ -161,7 +161,6 @@ display_game_over:
 .do_restart:
     mov byte [score_left], '0'
     mov byte [score_right], '0'
-    mov byte [last_scorer], 0
     jmp start_game
 
 ; --- Rendering Subroutines ---
@@ -271,9 +270,8 @@ draw_center_line:
 .mid:
     mov dl, 40
     call set_cursor
-    mov ax, 0x09B3      ; Use 0x09 with proper attribute
-    mov bl, 0x07        ; White color
-    mov cx, 1
+    mov al, '|'
+    mov ah, 0x0E
     int 0x10
     add dh, 2
     cmp dh, 24
@@ -366,16 +364,12 @@ draw_scores:
     mov dl, 30
     call set_cursor
     mov al, [score_left]
-    mov ah, 0x09
-    mov bl, 0x07        ; White color
-    mov cx, 1
+    mov ah, 0x0E
     int 0x10
     mov dl, 50
     call set_cursor
     mov al, [score_right]
-    mov ah, 0x09
-    mov bl, 0x07        ; White color
-    mov cx, 1
+    mov ah, 0x0E
     int 0x10
     ret
 
@@ -388,166 +382,60 @@ move_ball:
     mov [ball_y], al
     ret
 
-; ============================================================================
-; IMPROVED BALL PHYSICS - Realistic collision detection with angle variation
-; ============================================================================
 check_collisions:
-    ; Top/Bottom wall collision
+    ; Top/Bottom collision
     cmp byte [ball_y], 1
     jle .rev_y
     cmp byte [ball_y], 23
     jge .rev_y
-    
-    ; Left Paddle collision - SOLID detection (check multiple X positions)
-    mov al, [ball_x]
-    cmp al, PADDLE_LEFT_X
-    jl .check_right_paddle
-    cmp al, PADDLE_LEFT_X + 2
-    jg .check_right_paddle
-    
-    ; Check Y range for left paddle
+    ; Left Paddle collision
+    cmp byte [ball_x], PADDLE_LEFT_X + 1
+    jne .cr
     mov al, [ball_y]
+    cmp al, [paddle_left_y]
+    jl .cr
     mov bl, [paddle_left_y]
-    cmp al, bl
-    jl .check_right_paddle
     add bl, PADDLE_HEIGHT
     cmp al, bl
-    jge .check_right_paddle
-    
-    ; Check if ball is moving toward paddle (prevent double bounce)
-    cmp byte [ball_dx], 0
-    jge .check_right_paddle
-    
-    ; Hit left paddle - calculate angle based on impact position
-    mov byte [ball_dx], 1      ; Reverse horizontal direction
-    mov byte [ball_x], PADDLE_LEFT_X + 2  ; Push ball away from paddle
-    
-    ; Calculate impact position (ball_y - paddle_top)
+    jge .cr
+    mov byte [ball_dx], 1
+    ret
+.cr:
+    ; Right Paddle collision
+    cmp byte [ball_x], PADDLE_RIGHT_X - 1
+    jne .co
     mov al, [ball_y]
-    sub al, [paddle_left_y]
-    
-    ; Vary vertical velocity based on where ball hit paddle
-    cmp al, 0                   ; Hit top quarter
-    je .angle_up_steep
-    cmp al, 1                   ; Hit upper-middle
-    je .angle_up_normal
-    cmp al, 2                   ; Hit lower-middle
-    je .angle_down_normal
-    ; Otherwise hit bottom quarter
-    jmp .angle_down_steep
-    
-.check_right_paddle:
-    ; Right Paddle collision - SOLID detection (check multiple X positions)
-    mov al, [ball_x]
-    cmp al, PADDLE_RIGHT_X - 1
-    jl .check_score
-    cmp al, PADDLE_RIGHT_X + 1
-    jg .check_score
-    
-    ; Check Y range for right paddle
-    mov al, [ball_y]
+    cmp al, [paddle_right_y]
+    jl .co
     mov bl, [paddle_right_y]
-    cmp al, bl
-    jl .check_score
     add bl, PADDLE_HEIGHT
     cmp al, bl
-    jge .check_score
-    
-    ; Check if ball is moving toward paddle (prevent double bounce)
-    cmp byte [ball_dx], 0
-    jle .check_score
-    
-    ; Hit right paddle - calculate angle based on impact position
-    mov byte [ball_dx], -1     ; Reverse horizontal direction
-    mov byte [ball_x], PADDLE_RIGHT_X - 1  ; Push ball away from paddle
-    
-    ; Calculate impact position
-    mov al, [ball_y]
-    sub al, [paddle_right_y]
-    
-    ; Vary vertical velocity based on where ball hit paddle
-    cmp al, 0
-    je .angle_up_steep
-    cmp al, 1
-    je .angle_up_normal
-    cmp al, 2
-    je .angle_down_normal
-    jmp .angle_down_steep
-
-.angle_up_steep:
-    mov byte [ball_dy], -1
+    jge .co
+    mov byte [ball_dx], -1
     ret
-    
-.angle_up_normal:
-    mov byte [ball_dy], -1
-    ret
-    
-.angle_down_normal:
-    mov byte [ball_dy], 1
-    ret
-    
-.angle_down_steep:
-    mov byte [ball_dy], 1
-    ret
-
-.check_score:
-    ; Score when ball goes past paddles
+.co:
+    ; Score Check
     cmp byte [ball_x], 1
-    jle .score_right
+    jle .wr
     cmp byte [ball_x], 78
-    jge .score_left
+    jge .wl
     ret
-    
 .rev_y: 
     neg byte [ball_dy]
     ret
-    
-.score_right: 
+.wr: 
     inc byte [score_right]
-    mov byte [last_scorer], 2  ; Right paddle scored
     call reset_ball
     ret
-    
-.score_left: 
+.wl: 
     inc byte [score_left]
-    mov byte [last_scorer], 1  ; Left paddle scored
     call reset_ball
     ret
 
 reset_ball:
     mov byte [ball_x], 40
     mov byte [ball_y], 12
-    
-    ; Check who scored and serve towards them
-    cmp byte [last_scorer], 1
-    je .serve_to_left
-    cmp byte [last_scorer], 2
-    je .serve_to_right
-    
-    ; Default: randomize if no scorer set
-    mov ah, 0x00
-    int 0x1A
-    test dl, 1
-    jz .serve_to_left
-    
-.serve_to_right:
-    mov byte [ball_dx], 1   ; Serve to right paddle
-    jmp .set_vertical
-    
-.serve_to_left:
-    mov byte [ball_dx], -1  ; Serve to left paddle
-    
-.set_vertical:
-    ; Randomize vertical angle
-    mov ah, 0x00
-    int 0x1A
-    test dl, 2
-    jz .angle_down
-    mov byte [ball_dy], -1
-    ret
-    
-.angle_down:
-    mov byte [ball_dy], 1
+    neg byte [ball_dx]
     ret
 
 ; --- Data Section ---
@@ -562,7 +450,6 @@ score_left db '0'
 score_right db '0'
 frame_count db 0
 last_tick dw 0
-last_scorer db 0
 msg_p1_win db "PLAYER 1 WINS!", 0
 msg_p2_win db "PLAYER 2 WINS!", 0
 msg_restart db "Press 'R' to Restart or ESC to Menu", 0
